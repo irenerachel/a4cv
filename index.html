@@ -1031,10 +1031,10 @@ body.side-resizing{cursor:ew-resize}
 .resume[data-layout=side-l] .r-side .r-tags .r-tag{color:var(--primary-tag-text) !important;border-color:var(--primary-tag-border) !important}
 .resume[data-layout=side-l].tv-square .r-side .r-tag,
 .resume[data-layout=side-l].tv-square .r-side .r-tags .r-tag,
-.resume[data-layout=side-l].tv-solid .r-side .r-tag,
-.resume[data-layout=side-l].tv-solid .r-side .r-tags .r-tag,
 .resume[data-layout=side-l].tv-soft .r-side .r-tag,
 .resume[data-layout=side-l].tv-soft .r-side .r-tags .r-tag{background:var(--primary-tag-bg) !important}
+.resume[data-layout=side-l].tv-solid .r-side .r-tag,
+.resume[data-layout=side-l].tv-solid .r-side .r-tags .r-tag{background:var(--accent) !important;color:var(--on-accent) !important;border-color:transparent !important}
 .resume[data-layout=side-l].tv-outline .r-side .r-tag,
 .resume[data-layout=side-l].tv-outline .r-side .r-tags .r-tag{background:transparent !important;border:1px solid var(--primary-tag-border) !important}
 .resume[data-layout=side-l].tv-bracket .r-side .r-tag,
@@ -1048,10 +1048,10 @@ body.side-resizing{cursor:ew-resize}
 .resume[data-layout=side-r] .r-side .r-tags .r-tag{color:var(--side-tag-text) !important;border-color:var(--side-tag-border) !important}
 .resume[data-layout=side-r].tv-square .r-side .r-tag,
 .resume[data-layout=side-r].tv-square .r-side .r-tags .r-tag,
-.resume[data-layout=side-r].tv-solid .r-side .r-tag,
-.resume[data-layout=side-r].tv-solid .r-side .r-tags .r-tag,
 .resume[data-layout=side-r].tv-soft .r-side .r-tag,
 .resume[data-layout=side-r].tv-soft .r-side .r-tags .r-tag{background:var(--side-tag-bg) !important}
+.resume[data-layout=side-r].tv-solid .r-side .r-tag,
+.resume[data-layout=side-r].tv-solid .r-side .r-tags .r-tag{background:var(--accent) !important;color:var(--on-accent) !important;border-color:transparent !important}
 .resume[data-layout=side-r].tv-outline .r-side .r-tag,
 .resume[data-layout=side-r].tv-outline .r-side .r-tags .r-tag{background:transparent !important;border:1px solid var(--side-tag-border) !important}
 .resume[data-layout=side-r].tv-bracket .r-side .r-tag,
@@ -2221,6 +2221,17 @@ function contrastSafeSurface(bg, fg, darkPct=.18, lightPct=.07, minRatio=4.5){
   }
   return bg;
 }
+function visibleTintSurface(bg, fg, darkPct=.34, lightPct=.18, minDelta=1.12){
+  if(!bg || !fg) return bg || fg;
+  let pct = relLum(bg) < .18 ? darkPct : lightPct;
+  let mixed = mixColor(fg, bg, pct);
+  for(let i=0;i<8;i++){
+    if(contrastRatio(mixed, bg) >= minDelta) return mixed;
+    pct = Math.min(1, pct * 1.35);
+    mixed = mixColor(fg, bg, pct);
+  }
+  return mixed;
+}
 function readableColor(bg, candidates, minRatio=4.5){
   const parsed = (candidates || []).map(parseColorValue).filter(Boolean);
   for(const c of parsed){
@@ -2230,11 +2241,34 @@ function readableColor(bg, candidates, minRatio=4.5){
   const light = {r:248,g:250,b:252};
   return contrastRatio(light, bg) >= contrastRatio(dark, bg) ? light : dark;
 }
+function colorBrightness(c){
+  return c ? (c.r * 299 + c.g * 587 + c.b * 114) / 1000 : 255;
+}
+function colorSaturation(c){
+  if(!c) return 0;
+  const max = Math.max(c.r, c.g, c.b);
+  const min = Math.min(c.r, c.g, c.b);
+  return max ? (max - min) / max : 0;
+}
+function isVeryLightSurface(surface){
+  const b = colorBrightness(surface);
+  const s = colorSaturation(surface);
+  return relLum(surface) >= .62 || b >= 202 || (b >= 184 && s < .18);
+}
+function filledSurfaceText(surface, candidates=[]){
+  const white = parseColorValue('#ffffff');
+  const dark = parseColorValue('#111827');
+  if(!surface) return dark;
+  if(isVeryLightSurface(surface)){
+    return readableColor(surface, candidates.concat(['#111827', '#000000', '#ffffff']), 4.5);
+  }
+  if(contrastRatio(white, surface) >= 2.2 || colorSaturation(surface) >= .28 || colorBrightness(surface) < 170){
+    return white;
+  }
+  return contrastRatio(white, surface) >= contrastRatio(dark, surface) ? white : dark;
+}
 function readableChipText(surface, candidates=[]){
-  const light = ['#f8fafc', '#ffffff'];
-  const dark = ['#111827', '#000000'];
-  const fallbacks = relLum(surface) < .36 ? light.concat(dark) : dark.concat(light);
-  return readableColor(surface, candidates.concat(fallbacks), 4.5);
+  return filledSurfaceText(surface, candidates);
 }
 function applyReadableColorVars(style){
   const cs = getComputedStyle(resume);
@@ -2265,12 +2299,12 @@ function applyReadableColorVars(style){
   const sideHeading = readableColor(sideBg, [colorCss(heading), colorCss(accent), colorCss(sideText)], 4.5);
   const sideItem = readableColor(sideBg, [colorCss(item), colorCss(sideText), colorCss(sideSub)], 4.5);
   const sideRule = contrastRatio(rule, sideBg) >= 1.35 ? rule : mixColor(sideText, sideBg, .24);
-  const tagSeed = readableColor(bg, [colorCss(accent), colorCss(text), colorCss(name)], 3);
-  const tagBg = contrastSafeSurface(bg, tagSeed);
+  const tagSeed = parseColorValue(rawAccent) || accent || text;
+  const tagBg = visibleTintSurface(bg, tagSeed);
   const tagText = readableChipText(tagBg, [colorCss(accent), colorCss(text), colorCss(name)]);
   const tagBorder = mixColor(tagText, tagBg, .34);
-  const sideTagSeed = readableColor(sideBg, [colorCss(accent), colorCss(sideText), colorCss(sideHeading)], 3);
-  const sideTagBg = contrastSafeSurface(sideBg, sideTagSeed);
+  const sideTagSeed = accent || sideText;
+  const sideTagBg = visibleTintSurface(sideBg, sideTagSeed, .38, .20);
   const sideTagText = readableChipText(sideTagBg, [colorCss(accent), colorCss(sideText), colorCss(sideHeading)]);
   const sideTagBorder = mixColor(sideTagText, sideTagBg, .38);
   const softBg = softSurface(bg, tagText, .16, .07);
@@ -2280,13 +2314,11 @@ function applyReadableColorVars(style){
   const white = {r:255,g:255,b:255};
   const qrMediaText = readableColor(white, [colorCss(muted), '#475569', '#111827'], 4.5);
   const qrMediaAccent = readableColor(white, [colorCss(accent), '#4f46e5', '#111827'], 3);
-  const onPrimary = readableColor(primary, ['#ffffff', '#111827', '#000000'], 4.5);
-  const primaryTagBg = contrastSafeSurface(primary, onPrimary, .22, .08);
+  const onPrimary = filledSurfaceText(primary, ['#ffffff', '#111827', '#000000']);
+  const primaryTagBg = visibleTintSurface(primary, onPrimary, .24, .12);
   const primaryTagText = readableChipText(primaryTagBg, [colorCss(onPrimary), '#ffffff', '#111827']);
   const primaryTagBorder = mixColor(primaryTagText, primaryTagBg, .42);
-  const onAccent = (relLum(bg) < .18 && contrastRatio(white, accent) >= 2.4)
-    ? white
-    : readableColor(accent, ['#ffffff', '#111827', '#000000'], 4.5);
+  const onAccent = filledSurfaceText(accent, ['#ffffff', '#111827', '#000000']);
   style.setProperty('--accent', colorCss(accent));
   style.setProperty('--text', colorCss(text));
   style.setProperty('--sub', colorCss(sub));
@@ -3667,7 +3699,7 @@ function normalizeExportClone(doc){
     const h2cs = win.getComputedStyle(h2);
     const bg = parseColorValue(h2cs.backgroundColor);
     const baseColor = bg && h2cs.backgroundColor !== 'rgba(0, 0, 0, 0)'
-      ? colorCss(readableColor(bg, ['#ffffff', h2cs.color, '#111827', '#000000'], 2.4))
+      ? colorCss(filledSurfaceText(bg, [h2cs.color, '#ffffff', '#111827', '#000000']))
       : toLegacyColorValue(win.getComputedStyle(el).color);
     if(baseColor){
       el.style.color = baseColor;
@@ -3680,7 +3712,7 @@ function normalizeExportClone(doc){
     const bg = parseColorValue(cs.backgroundColor);
     const hasBg = bg && cs.backgroundColor !== 'rgba(0, 0, 0, 0)';
     const tagColor = hasBg
-      ? colorCss(readableColor(bg, [cs.color, '#111827', '#ffffff', '#000000'], 4.5))
+      ? colorCss(filledSurfaceText(bg, [cs.color, '#ffffff', '#111827', '#000000']))
       : toLegacyColorValue(cs.color);
     tag.style.display = 'inline-block';
     tag.style.whiteSpace = 'nowrap';
@@ -3695,7 +3727,7 @@ function normalizeExportClone(doc){
       const h2 = el.closest('.r-h2') || el;
       const h2Bg = parseColorValue(win.getComputedStyle(h2).backgroundColor);
       if(!h2Bg) return;
-      const c = colorCss(readableColor(h2Bg, ['#ffffff', '#111827', '#000000'], 2.4));
+      const c = colorCss(filledSurfaceText(h2Bg, ['#ffffff', '#111827', '#000000']));
       el.style.color = c;
       el.style.webkitTextFillColor = c;
     });
