@@ -2490,7 +2490,7 @@ function renderHeaderInline(){
     : `<div class="r-avatar"></div>`;
   const name = `<div class="r-name" contenteditable spellcheck="false">${escapeHTML(state.name)}</div>`;
   const sub  = `<div class="r-sub" contenteditable spellcheck="false">${escapeHTML(state.subtitle)}</div>`;
-  const contact = `<div class="r-contact" contenteditable spellcheck="false">${state.contact.map(c=>`<span>${escapeHTML(c)}</span>`).join('<span style="opacity:.4;margin:0 6px">·</span>')}</div>`;
+  const contact = `<div class="r-contact" contenteditable spellcheck="false">${state.contact.map(c=>`<span>${escapeHTML(c)}</span>`).join('<span data-contact-sep="true" style="opacity:.4;margin:0 6px">·</span>')}</div>`;
   const layout = currentLayout();
   if(layout==='typo'){
     return `<header class="r-header"><div>${name}${sub}${contact}</div>${av}</header>`;
@@ -2961,12 +2961,27 @@ function cleanupEmptyTags(sec){
     else tag.remove();
   });
 }
+function contactPartsFromText(text){
+  return String(text || '')
+    .replace(/\u00a0/g, ' ')
+    .split(/\s*(?:[\n·•|｜]+)\s*|\s{2,}/)
+    .map(s=>s.trim())
+    .filter(Boolean);
+}
+function contactPartsFromElement(el){
+  if(!el) return [];
+  const childParts = [...el.children]
+    .filter(child=>!child.hasAttribute('data-contact-sep'))
+    .flatMap(child=>contactPartsFromText(child.innerText || child.textContent || ''));
+  return childParts.length ? childParts : contactPartsFromText(el.innerText || el.textContent || '');
+}
 function setupEditableEvents(){
   resume.querySelectorAll('[contenteditable]').forEach(el=>{
     el.addEventListener('input', ()=>{
       const t = el;
       if(t.classList.contains('r-name')) state.name = t.innerText.trim();
       if(t.classList.contains('r-sub')) state.subtitle = t.innerText.trim();
+      if(t.classList.contains('r-contact')) state.contact = contactPartsFromElement(t);
       if(t.classList.contains('r-tag')){
         cleanupEmptyTags(t.closest('.r-section'));
         if(typeof syncContentFromDOM === 'function') syncContentFromDOM();
@@ -5216,7 +5231,18 @@ function readRich(el){
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
   return s.replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim();
 }
+function syncHeaderFromDOM(){
+  const header = resume.querySelector('.r-header, .r-side-head');
+  if(!header) return;
+  const nameEl = header.querySelector('.r-name');
+  const subEl = header.querySelector('.r-sub');
+  const contactEl = header.querySelector('.r-contact');
+  if(nameEl) state.name = nameEl.innerText.trim();
+  if(subEl) state.subtitle = subEl.innerText.trim();
+  if(contactEl) state.contact = contactPartsFromElement(contactEl);
+}
 function syncContentFromDOM(){
+  syncHeaderFromDOM();
   document.querySelectorAll('#stage .r-section').forEach(sec=>{
     const s = state.sections.find(x=>x.id===sec.dataset.sid);
     if(!s) return;
