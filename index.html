@@ -108,6 +108,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .av-menu button:hover{background:#f3f5fa}
 .av-menu button.active{background:#eef0ff;color:#4f46e5;font-weight:700}
 .av-menu .av-menu-title{font-size:10px;color:#9aa1ad;padding:4px 10px 2px;letter-spacing:.06em}
+.text-format-menu{position:fixed;z-index:560;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 42px rgba(15,23,42,.22);padding:4px;display:flex;gap:2px;align-items:center}
+.text-format-menu.hidden{display:none}
+.text-format-menu button{width:30px;height:28px;border-radius:7px;font-size:14px;color:#20242d;font-family:Inter,'Noto Sans SC',sans-serif;font-weight:800;display:flex;align-items:center;justify-content:center;transition:.12s;flex:none}
+.text-format-menu button:hover{background:#f3f5fa;color:#4f46e5}
+.text-format-menu button[data-format="italic"]{font-style:italic}
+.text-format-menu button[data-format="underline"]{text-decoration:underline}
+.text-format-divider{width:1px;height:22px;background:var(--line-soft);margin:0 3px}
+.text-format-menu input[type="range"]{width:94px;accent-color:#6366f1}
+.text-format-menu b{font-size:10px;color:#7b8493;font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
 .av-size-pop{position:fixed;z-index:520;width:190px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.96);box-shadow:0 16px 36px rgba(15,23,42,.2);backdrop-filter:blur(8px);font-size:11px;font-weight:650;color:#4c5563;opacity:1;visibility:visible;transform:translateY(0);transition:opacity .14s,transform .14s,visibility .14s}
 .av-size-pop.hidden{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(4px)}
 .av-size-pop input{width:100%;accent-color:#6366f1}
@@ -2105,13 +2114,23 @@ function parseSectionItems(lines){
 }
 
 /* ============ INLINE MD ============ */
+function normalizeInlineSizeValue(value){
+  const n = parseFloat(value);
+  if(!Number.isFinite(n)) return 1;
+  return Math.max(0.75, Math.min(1.45, n));
+}
 function inlineMD(t){
   if(!t) return '';
-  // bold/italic/code only — escape rest
+  // bold/italic/underline/inline-size/code only — escape rest
   const esc = String(t).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   return esc
+    .replace(/\{\{fs:([0-9.]+)\|(.+?)\}\}/g, (_, size, text)=>{
+      const n = normalizeInlineSizeValue(size).toFixed(2);
+      return `<span data-inline-size="${n}" style="font-size:${n}em">${text}</span>`;
+    })
     .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
     .replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g,'$1<em>$2</em>')
+    .replace(/\+\+(.+?)\+\+/g,'<u>$1</u>')
     .replace(/`(.+?)`/g,'<code style="font-family:JetBrains Mono,monospace;font-size:.9em;background:rgba(0,0,0,.06);padding:0 4px;border-radius:3px">$1</code>');
 }
 function escapeHTML(s){return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -2431,7 +2450,7 @@ function itemHTML(s, it, itemIndex, isEducation=false){
   const bullets = it.bullets || [];
   return `<div class="r-item" data-item-index="${itemIndex}">
     ${entryDeleteButton(itemIndex)}
-    <div class="r-row"><div class="l" contenteditable spellcheck="false">${escapeHTML(title)}</div><div class="r" contenteditable spellcheck="false">${escapeHTML(it.meta||'')}</div></div>
+    <div class="r-row"><div class="l" contenteditable spellcheck="false">${inlineMD(title)}</div><div class="r" contenteditable spellcheck="false">${inlineMD(it.meta||'')}</div></div>
     ${bullets.length ? `<ul class="r-desc">${bullets.map((b, bulletIndex)=>bulletLiHTML(b, itemIndex, bulletIndex)).join('')}</ul>` : ''}
     ${addSubitemButton(s.id, itemIndex)}
   </div>`;
@@ -2460,8 +2479,8 @@ function renderSectionContent(s){
     return `<div class="r-qr-card">
       <div class="r-qr-media" data-qr-sid="${s.id}" title="点击更换二维码图片">${media}</div>
       <div class="r-qr-copy">
-        <strong contenteditable spellcheck="false">${escapeHTML(label)}</strong>
-        <div class="r-qr-caption" contenteditable spellcheck="false">${escapeHTML(caption)}</div>
+        <strong contenteditable spellcheck="false">${inlineMD(label)}</strong>
+        <div class="r-qr-caption" contenteditable spellcheck="false">${inlineMD(caption)}</div>
       </div>
     </div>`;
   }
@@ -2708,7 +2727,7 @@ function sectionHTML(s, isCard, ord){
     <span class="r-drag" title="拖动模块"></span>
     <button class="r-del" title="删除此模块（Cmd+Z 撤销）" data-del="${s.id}">×</button>
     <span class="r-resize" title="横向拖拽调整模块宽度"></span>
-    <h2 class="r-h2"><small>${num}</small><i>${num}</i><span contenteditable spellcheck="false">${escapeHTML(s.title)}</span></h2>
+    <h2 class="r-h2"><small>${num}</small><i>${num}</i><span contenteditable spellcheck="false">${inlineMD(s.title)}</span></h2>
     <div class="r-content">${renderSectionContent(s)}</div>
     ${addItem}
   </div>`;
@@ -5218,17 +5237,183 @@ const QR_IMAGE = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgM
   ['touchend','touchmove','touchcancel'].forEach(ev=> $('#stage').addEventListener(ev, ()=> clearTimeout(pressTimer), {passive:true}));
 })();
 
+/* ============ 选中文字：右键格式菜单 ============ */
+(function(){
+  const menu = document.createElement('div');
+  menu.id = 'textFormatMenu';
+  menu.className = 'text-format-menu hidden';
+  menu.innerHTML = `
+    <button data-format="bold" title="加粗">B</button>
+    <button data-format="italic" title="斜体">I</button>
+    <button data-format="underline" title="下划线">U</button>
+    <span class="text-format-divider"></span>
+    <button data-size-step="-0.05" title="减小字号">A-</button>
+    <input id="textFormatSize" type="range" min="0.75" max="1.45" step="0.05" value="1" title="字号">
+    <button data-size-step="0.05" title="增大字号">A+</button>
+    <b id="textFormatSizeValue">100%</b>`;
+  document.body.appendChild(menu);
+
+  const sizeSlider = menu.querySelector('#textFormatSize');
+  const sizeValue = menu.querySelector('#textFormatSizeValue');
+  let savedRange = null;
+  let activeEditable = null;
+  let activeSizeSpan = null;
+
+  function editableFromNode(node){
+    if(!node) return null;
+    const el = node.nodeType === 1 ? node : node.parentElement;
+    return el && el.closest ? el.closest('#resume [contenteditable]') : null;
+  }
+  function isRichEditable(el){
+    return !!(el && el.closest('#resume .r-section') && !el.classList.contains('r-tag'));
+  }
+  function selectedRichEditable(){
+    const sel = window.getSelection();
+    if(!sel || !sel.rangeCount || sel.isCollapsed) return null;
+    const anchorEditable = editableFromNode(sel.anchorNode);
+    const focusEditable = editableFromNode(sel.focusNode);
+    if(!anchorEditable || anchorEditable !== focusEditable || !isRichEditable(anchorEditable)) return null;
+    return { sel, range: sel.getRangeAt(0), editable: anchorEditable };
+  }
+  function setSizeValue(v){
+    const n = normalizeInlineSizeValue(v);
+    sizeSlider.value = n.toFixed(2);
+    sizeValue.textContent = Math.round(n * 100) + '%';
+    return n;
+  }
+  function sizeForRange(range){
+    let node = range.startContainer;
+    if(node && node.nodeType !== 1) node = node.parentElement;
+    const sizeNode = node && node.closest ? node.closest('[data-inline-size]') : null;
+    return sizeNode ? normalizeInlineSizeValue(sizeNode.getAttribute('data-inline-size')) : 1;
+  }
+  function hideMenu(){
+    menu.classList.add('hidden');
+    activeSizeSpan = null;
+  }
+  function restoreSelection(){
+    if(!savedRange) return false;
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+    if(activeEditable) activeEditable.focus();
+    return true;
+  }
+  function markFormatted(){
+    if(activeEditable){
+      activeEditable.dispatchEvent(new InputEvent('input', {bubbles:true, inputType:'formatSetBlockText'}));
+    }
+    if(typeof syncContentFromDOM === 'function') syncContentFromDOM();
+    if(typeof commitHistory === 'function') commitHistory({sync:true});
+    if(typeof saveDraft === 'function') saveDraft();
+  }
+  function applyTextCommand(command){
+    if(!restoreSelection()) return;
+    if(typeof flushPendingHistory === 'function') flushPendingHistory();
+    document.execCommand(command, false, null);
+    markFormatted();
+    hideMenu();
+  }
+  function ensureSizeSpan(size){
+    const sel = window.getSelection();
+    if(activeSizeSpan && document.contains(activeSizeSpan)){
+      activeSizeSpan.style.fontSize = size.toFixed(2) + 'em';
+      activeSizeSpan.setAttribute('data-inline-size', size.toFixed(2));
+      const range = document.createRange();
+      range.selectNodeContents(activeSizeSpan);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      savedRange = range.cloneRange();
+      return;
+    }
+    if(!restoreSelection()) return;
+    if(typeof flushPendingHistory === 'function') flushPendingHistory();
+    const range = sel.getRangeAt(0);
+    const span = document.createElement('span');
+    span.style.fontSize = size.toFixed(2) + 'em';
+    span.setAttribute('data-inline-size', size.toFixed(2));
+    try{
+      range.surroundContents(span);
+    }catch(e){
+      const frag = range.extractContents();
+      span.appendChild(frag);
+      range.insertNode(span);
+    }
+    activeSizeSpan = span;
+    const nextRange = document.createRange();
+    nextRange.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(nextRange);
+    savedRange = nextRange.cloneRange();
+  }
+  function applyInlineSize(value){
+    const size = setSizeValue(value);
+    ensureSizeSpan(size);
+    markFormatted();
+  }
+
+  $('#stage').addEventListener('contextmenu', e=>{
+    const ctx = selectedRichEditable();
+    if(!ctx) return;
+    const targetEditable = e.target.closest && e.target.closest('#resume [contenteditable]');
+    if(targetEditable !== ctx.editable) return;
+    e.preventDefault();
+    savedRange = ctx.range.cloneRange();
+    activeEditable = ctx.editable;
+    activeSizeSpan = null;
+    setSizeValue(sizeForRange(ctx.range));
+    menu.style.left = Math.max(8, Math.min(e.clientX, window.innerWidth - 260)) + 'px';
+    menu.style.top = Math.max(8, Math.min(e.clientY, window.innerHeight - 48)) + 'px';
+    menu.classList.remove('hidden');
+  });
+  menu.addEventListener('mousedown', e=> e.preventDefault());
+  menu.addEventListener('click', e=>{
+    const formatBtn = e.target.closest('button[data-format]');
+    if(formatBtn){ applyTextCommand(formatBtn.dataset.format); return; }
+    const stepBtn = e.target.closest('button[data-size-step]');
+    if(stepBtn){
+      const next = normalizeInlineSizeValue(parseFloat(sizeSlider.value) + parseFloat(stepBtn.dataset.sizeStep));
+      applyInlineSize(next);
+    }
+  });
+  sizeSlider.addEventListener('input', e=> applyInlineSize(e.target.value));
+  document.addEventListener('click', e=>{ if(!e.target.closest('#textFormatMenu')) hideMenu(); });
+  window.addEventListener('keydown', e=>{ if(e.key === 'Escape') hideMenu(); });
+  window.addEventListener('resize', hideMenu);
+})();
+
 /* ============ 编辑内容回写（contenteditable → state，修复切布局丢编辑的隐患） ============ */
+function inlineSizeFromNode(node){
+  if(!node || node.nodeType !== 1) return null;
+  const raw = node.getAttribute('data-inline-size');
+  if(raw) return normalizeInlineSizeValue(raw);
+  const fs = node.style && node.style.fontSize;
+  if(!fs) return null;
+  if(/em$/i.test(fs)) return normalizeInlineSizeValue(fs);
+  if(/%$/.test(fs)) return normalizeInlineSizeValue(parseFloat(fs) / 100);
+  return null;
+}
+function richNodeText(node){
+  if(node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
+  if(node.nodeType !== Node.ELEMENT_NODE) return '';
+  if(node.matches('.r-drag,.r-entry-del,.r-line-del,.r-add-subitem')) return '';
+  if(node.tagName === 'BR') return '\n';
+  let text = [...node.childNodes].map(richNodeText).join('');
+  if(!text) return '';
+  const tag = node.tagName.toLowerCase();
+  if(tag === 'strong' || tag === 'b') text = `**${text}**`;
+  if(tag === 'em' || tag === 'i') text = `*${text}*`;
+  if(tag === 'code') text = `\`${text}\``;
+  const decoration = (node.style && (node.style.textDecoration || node.style.textDecorationLine)) || '';
+  if(tag === 'u' || tag === 'ins' || /underline/i.test(decoration)) text = `++${text}++`;
+  const size = inlineSizeFromNode(node);
+  if(size && Math.abs(size - 1) > 0.01) text = `{{fs:${size.toFixed(2)}|${text}}}`;
+  return text;
+}
 function readRich(el){
   const clone = el.cloneNode(true);
   clone.querySelectorAll('.r-drag,.r-entry-del,.r-line-del,.r-add-subitem').forEach(x=>x.remove());
-  let s = clone.innerHTML
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<(strong|b)(\s[^>]*)?>/gi, '**').replace(/<\/(strong|b)>/gi, '**')
-    .replace(/<(em|i)(\s[^>]*)?>/gi, '*').replace(/<\/(em|i)>/gi, '*')
-    .replace(/<code[^>]*>/gi, '`').replace(/<\/code>/gi, '`')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  let s = [...clone.childNodes].map(richNodeText).join('');
   return s.replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim();
 }
 function syncHeaderFromDOM(){
@@ -5247,7 +5432,7 @@ function syncContentFromDOM(){
     const s = state.sections.find(x=>x.id===sec.dataset.sid);
     if(!s) return;
     const titleEl = sec.querySelector('.r-h2 [contenteditable]');
-    if(titleEl && titleEl.innerText.trim()) s.title = titleEl.innerText.trim();
+    if(titleEl && titleEl.innerText.trim()) s.title = readRich(titleEl);
     const content = sec.querySelector('.r-content');
     if(!content) return;
     if(s.type === 'qr'){
@@ -5255,8 +5440,8 @@ function syncContentFromDOM(){
       s.items = [{
         type:'qr',
         src: old.src || '',
-        label: content.querySelector('.r-qr-copy strong')?.innerText.trim() || '扫码查看',
-        caption: content.querySelector('.r-qr-caption')?.innerText.trim() || ''
+        label: content.querySelector('.r-qr-copy strong') ? readRich(content.querySelector('.r-qr-copy strong')) : '扫码查看',
+        caption: content.querySelector('.r-qr-caption') ? readRich(content.querySelector('.r-qr-caption')) : ''
       }];
     } else if(s.type === 'tags'){
       cleanupEmptyTags(sec);
@@ -5273,7 +5458,7 @@ function syncContentFromDOM(){
       [...content.children].forEach(node=>{
         if(node.classList && node.classList.contains('r-item')){
           const l = node.querySelector('.r-row .l'), r = node.querySelector('.r-row .r');
-          items.push({type:'item', title:l ? l.innerText.trim() : '', meta:r ? r.innerText.trim() : '',
+          items.push({type:'item', title:l ? readRich(l) : '', meta:r ? readRich(r) : '',
                       bullets:[...node.querySelectorAll('li')].map(readRich).filter(Boolean)});
         } else if(node.tagName === 'UL'){
           [...node.querySelectorAll('li')].forEach(li=>{ const t = readRich(li); if(t) items.push({type:'bullet', text:t}); });
