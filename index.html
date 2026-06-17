@@ -88,6 +88,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .zbtn:disabled{opacity:.32;cursor:not-allowed}
 .zbtn:disabled:hover{background:transparent;color:#4c5563}
 .zbtn.history{font-size:15px}
+.history-help{position:relative;width:20px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#7b8493;font-size:12px;font-weight:800;cursor:help;flex:none}
+.history-help:hover,.history-help:focus-visible{background:#eef1f6;color:#4f46e5;outline:none}
+.history-help-pop{position:absolute;top:calc(100% + 8px);left:0;width:270px;padding:10px 12px;border-radius:10px;background:#171a21;color:#f8fafc;box-shadow:0 16px 38px rgba(15,23,42,.28);font-size:11.5px;font-weight:500;line-height:1.65;text-align:left;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .14s,transform .14s,visibility .14s;pointer-events:none;z-index:280}
+.history-help-pop::before{content:"";position:absolute;left:8px;top:-5px;width:10px;height:10px;background:#171a21;transform:rotate(45deg)}
+.history-help:hover .history-help-pop,.history-help:focus-visible .history-help-pop{opacity:1;visibility:visible;transform:translateY(0)}
+.history-help-pop b{color:#fff;font-weight:800}
 .zoom-sep{width:1px;height:20px;background:var(--line-soft);margin:0 4px}
 .zbtn.fit{font-size:11px;padding:0 9px;border-left:1px solid var(--line-soft);border-radius:0 7px 7px 0;margin-left:2px}
 .zoom-val{font-size:11px;color:#566071;min-width:40px;text-align:center;font-variant-numeric:tabular-nums;font-weight:650}
@@ -1398,10 +1404,16 @@ body.section-sorting .resume[data-layout=side-r] #mainArea{outline:1px dashed rg
   <main class="canvas" id="canvas">
     <div class="canvas-tip" id="canvasTip">
       <span><b>预览缩放</b>：Command / Control + 鼠标滚轮，或使用顶部 + / − / 适合</span>
-      <span><b>编辑文案</b>：直接点击简历里的文字修改</span>
+      <span><b>编辑文案</b>：直接点击文字编辑内容；选中文字后右键可加粗、斜体、下划线或调字号</span>
       <button class="tip-close" id="tipClose" title="关闭提示" aria-label="关闭提示">×</button>
     </div>
-    <div class="zoom-dock" title="Command / Control + 鼠标滚轮也可缩放">
+    <div class="zoom-dock" aria-label="缩放和历史操作">
+      <span class="history-help" tabindex="0" aria-label="编辑提示">?
+        <span class="history-help-pop">
+          <span><b>右键提醒</b>：右键头像可换形状；选中文字后右键可加粗、斜体、下划线。</span><br>
+          <span><b>字号提醒</b>：选中内容后，通过右键菜单里的滑杆可以修改文字大小。</span>
+        </span>
+      </span>
       <button class="zbtn history" id="btnUndo" title="撤回（Command / Control + Z）" aria-label="撤回" disabled>↶</button>
       <button class="zbtn history" id="btnRedo" title="恢复（Command / Control + Shift + Z / Control + Y）" aria-label="恢复" disabled>↷</button>
       <span class="zoom-sep" aria-hidden="true"></span>
@@ -5728,7 +5740,7 @@ window.addEventListener('resize', ()=>{
   __presetRespTimer = setTimeout(syncPresetPanelResponsive, 120);
 });
 
-/* 提示条：8 秒后自动淡出，可手动关闭 */
+/* 提示条：7 秒后自动淡出，可手动关闭 */
 (function(){
   const tip = $('#canvasTip');
   if(!tip) return;
@@ -5737,7 +5749,7 @@ window.addEventListener('resize', ()=>{
     setTimeout(()=>tip.classList.add('gone'), 500);
   };
   $('#tipClose').onclick = dismiss;
-  setTimeout(dismiss, 5000);
+  setTimeout(dismiss, 7000);
 })();
 
 /* init */
